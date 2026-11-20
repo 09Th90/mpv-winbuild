@@ -106,7 +106,7 @@ jobs:
             core.setOutput("matrix_bit",JSON.stringify(matrix));
             matrix.lgpl=[false];
             if ("${{ inputs.lgpl}}" == "true") {
-              matrix.lgpl.push(true)
+              matrix.lgpl=[true]  // no-Lua 专用线：只构建 LGPL libmpv，跳过 GPL 整包
             }
             core.setOutput("matrix",JSON.stringify(matrix));
 
@@ -391,6 +391,10 @@ jobs:
           fi
           if [ "${{ matrix.lgpl }}" = "true" ]; then
             git am --3way ../compile-lgpl-libmpv.patch
+            # no-Lua：LuaJIT 的 SEH 异常 0xE24C4A02 会逃逸进宿主进程致崩
+            # （jaseg/python-mpv#305），嵌入式 libmpv 必须去掉 Lua/JS。
+            sed -i 's/-Dlua=enabled/-Dlua=disabled/; s/-Djavascript=enabled/-Djavascript=disabled/' packages/mpv.cmake
+            sed -i '/^        luajit$/d; /^        mujs$/d' packages/mpv.cmake
           fi
           bash ../build.sh -t '${{ matrix.bit }}' -c '${{ inputs.compiler }}' -s "${{ matrix.lgpl == true && 'true' || 'false' }}"
       - name: Collect logs
